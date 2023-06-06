@@ -1,0 +1,62 @@
+
+Notifyee, (fail-over/escalation notifyee), optional @mention, priority-expression,
+separte table:
+	blackout periods
+		registry id, period count (which will be decremented each period)
+
+blackout/pause feature in deadmansnitch
+
+
+ 
+ create table registration(
+        ID                      INT PRIMARY KEY NOT NULL,
+        NAME                    TEXT            NOT NULL,
+        PERIOD                  INT             NOT NULL,
+        LAST_SIGNAL_DATE        DATE
+);
+
+
+
+new alert channel
+	type
+	address/id/number/target/path/url
+	payload template (in cases like teams or RESTful call)
+	escalation channel (link back to self)
+
+new monitor
+	Name
+		suggested names: environment.hostname.jobtaskscript
+				also gives you a special URL for each job you want monitored. Use curl or your browser to make a request to this URL to start snitching.
+	Interval (or "normal periodicity" of check-in, i.e., allowable time between heartbeats before reaction)
+	Alert channels
+		checkboxes
+	permissable misses (before alerting or escalating), default 0
+
+service status
+	yyyymmddhhmiss of last processing cycle without error
+
+confirm/heartbeat page
+	callable with query params, but also just downloadable scriptlets
+	
+
+
+optional automatic backup of the db, perhaps rsync
+"export" is just downloading registry, as long as we are sure we have every column in the output
+
+https://bpits.heartbeat.sh/
+
+
+
+
+
+#mov initialize_db.sql into image:/db/
+cat initialize_db.sql | sqlite3 /db/heartbeat_monitor.db
+
+apt-get install vim.tiny python3
+apt-get install python3-flask ##TODO noninteractive?
+
+##apt-get install python3-pip
+##pip install Flask
+
+export FLASK_APP=/usr/local/src/hb.py ; flask run --host=0.0.0.0
+ 
