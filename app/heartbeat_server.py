@@ -11,14 +11,32 @@ from threading import Thread, Event
 ## Monitor Thread
 shutdown_event = Event()
 service_period_event = Event()
-MONITORING_PERIOD_LENGTH=60 * 5  #probably should be 120 or greater. Seconds.
-COOLOFF_PERIOD=60*60   #seconds
-SIGNAL_URI_BASE = os.environ['SIGNAL_URI_BASE']
-NOTIFICATION_MESSAGE_PREFIX = os.environ['NOTIFICATION_MESSAGE_PREFIX']
-DEFAULT_NTFY_CHANNEL_NAME = os.environ['DEFAULT_NTFY_CHANNEL_NAME']
+DB_FILEPATH = "/db/heartbeat_monitor.db"
+MONITORING_PERIOD_LENGTH =  60 * 5  #probably should be 120 or greater. Seconds.
+COOLOFF_PERIOD =            60*60   #seconds
+SIGNAL_URI_BASE =               os.environ['SIGNAL_URI_BASE']
+NOTIFICATION_MESSAGE_PREFIX =   os.environ['NOTIFICATION_MESSAGE_PREFIX']
+DEFAULT_NTFY_CHANNEL_NAME =     os.environ['DEFAULT_NTFY_CHANNEL_NAME']
+ADAPTIVE_CARDS_WEBHOOK_URI =    os.environ['ADAPTIVE_CARDS_WEBHOOK_URI'] # pretty much MS Teams channel web hook.
 
 
 def monitor():
+    """
+    The monitor function will constitute a separate execution thread
+    responsible for periodically reading the registry and heartbeat
+    records and issuing any and all outgoing notifications for overdue
+    heartbeat signal records. 
+    The monitor thread will not directly open the sqlite DB. 
+    Instead, it will act a little bit like a client to the RESTful
+    service offered by the other, bottle-based thread.
+    Activity plan:
+        http GET list of overdue heartbeats
+        for each:
+          evaluate severity and notification target/method
+          evaluate cool off periods and blackouts
+          if appropriate, then: issue alert
+          inc/dec appropriately (blackout cycles or whatnot)
+    """
     ###DEBUG###import pdb; pdb.set_trace()
     print("[monitor]: execution thread started.")
     print("           default/fallback ntfy channel configured for outgoing notifications: " + DEFAULT_NTFY_CHANNEL_NAME )
@@ -44,15 +62,26 @@ def monitor():
                     ##msg = NOTIFICATION_MESSAGE_PREFIX + alerts['heartbeats'][j]['name']
                     ##alert_htreq = requests.post("https://ntfy.sh/" + DEFAULT_NTFY_CHANNEL_NAME, data=msg.encode(encoding='utf-8'))
                     #Slightly Fancier
-                    msg = "Examine job/task " + alerts['heartbeats'][j]['name']
+                    msg = "Examine job/task " + alerts['heartbeats'][j]['name'] + " as it is overdue for a heartbeat signal!"
                     if alerts['heartbeats'][j]['last_alert_date']:
                         #2023-06-06 14:30:53
-                        thresh_date = datetime.datetime.srtptime(alerts['heartbeats'][j]['last_alert_date'],"%Y-%m-%d %H:%M:%S") + datetime.timedelta(COOLOFF_PERIOD)
+                        ready_date = datetime.datetime.srtptime(alerts['heartbeats'][j]['last_alert_date'],"%Y-%m-%d %H:%M:%S") + datetime.timedelta(0,COOLOFF_PERIOD)
                     else:
-                        thresh_date = nowness - datetime.timedelta(COOLOFF_PERIOD)
-                    if thresh_date < nowness:
+                        ready_date = nowness - datetime.timedelta(0,COOLOFF_PERIOD)
+                    print("thresh hold date: " + str(ready_date) + " vs. " + str(nowness))
+                    if nowness < ready_date:
                         print("Cooling off on this one...")
                     else:
+                        #TODO: detection and branching and fallback based on notification addresses
+                        # differing notifciation strategies probably need some dedicated functions too
+                        if alerts['heartbeats'][j]['alert_address_primary'].startswith("http://"):
+                                print(" alert_address_primary appears to be an HTTP URL (webhook?)")
+                        elif alerts['heartbeats'][j]['alert_address_primary'].startswith("tel:"):
+                                print(" alert_address_primary appears to be a TELephone number (sms?)")
+                        elif alerts['heartbeats'][j]['alert_address_primary'].index("@") > 3:
+                                print(" alert_address_primary appears to be an EMAIL ADDRESS")
+                        else:
+                                print(" alert_address_primary appears to be a simple string, so maybe a ntfy channel name?")
                         alert_htreq = requests.post("https://ntfy.sh/" + DEFAULT_NTFY_CHANNEL_NAME,
                                 data=msg.encode(encoding='utf-8'),
                                 headers={
@@ -61,35 +90,31 @@ def monitor():
                                         "Tags": "warning"
                                 })
                         if alert_htreq.status_code == 429:
-                            #blackout, temporary double cooloff
+                            #blackout, temporary double cooloff, but also fallback/escalate?
                             print("WARNING: too many requests to external service!")
                         print("\t outgoing http: "+str(alert_htreq.status_code) + "\t" + msg)
-                        arec_htreq = requests.put( SIGNAL_URI_BASE+"api/alert"+alerts['heartbeats'][j]['id'])
+                        arec_htreq = requests.put( SIGNAL_URI_BASE+"api/alert/"+str(alerts['heartbeats'][j]['id']))
                         print("\t self http: "+str(arec_htreq.status_code) + "\t" + msg)
             else:
                 print(str(rep_htreq.status_code))
                 print(rep_htreq)
-            #http GET list of overdue heartbeats
-            #for each:
-            # evaluate severity and notification target/method
-            # issue alert
-            # inc/dec appropriately
     print("[monitor]: execution thread shutting down on shutdown event signal.") # or expired...
 
 monitor_thread = Thread(target=monitor)
 monitor_thread.start()
 
 
-## Management Web App (Main) Thread
-# Views
+## Web (Main) Thread
+# Views - Management Web App
 @route("/")
 def homepage():
     genid = str(time.time_ns())
     return template('registration',msg="REGISTRATION URI: "+ SIGNAL_URI_BASE+"api/heartbeat/"+ genid )
 
-# API
+# API - RESTful
 #TODO: /api/ for OpenAPI stuff, and mimetypes
 #TODO: edits/updates and deletes?
+#TODO: some reasonable aliases and flexibility mods?
 @route("/api/registry", method='POST')
 def register():
     genid = str(time.time_ns())
@@ -99,13 +124,15 @@ def register():
         if postdata[0] == '{':
             #then its json...
             params = json.loads(postdata)
+            #TODO: for /api/export to be useful, we probably need to determine right here if postdata is a normal single registration
+            # or if it is a whole-export/backup registry and act accordingly.
         else:
             params_name = request.params.get('name')
             params_period = request.params.get('period')
             params_notification_address = request.params.get('notification_address')
     if params_name and params_period:
         print(','.join((params_name,params_period,params_notification_address)) + "\n\t" + ','.join(request.params))
-        db = sqlite3.connect("/db/heartbeat_monitor.db")
+        db = sqlite3.connect(DB_FILEPATH)
         cursor = db.cursor() 
         #cursor.execute("INSERT into registry (name,period) VALUES('Test_"+genid+"',120)")
         cursor.execute("INSERT into registry (name,period,ALERT_ADDRESS_PRIMARY) VALUES(?,?,?)",(params_name,params_period,params_notification_address))
@@ -122,7 +149,7 @@ def register():
 @route("/api/registry", method='GET')
 @route("/api/export", method='GET')
 def registry_report():
-    db = sqlite3.connect("/db/heartbeat_monitor.db")
+    db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("SELECT * from registry")
     #row = await cursor.fetchone()
@@ -138,7 +165,7 @@ def registry_report():
 @route("/api/flatline", method='GET')
 @route("/api/report", method='GET')
 def overdue_report():
-    db = sqlite3.connect("/db/heartbeat_monitor.db")
+    db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     offset = str(6)+" minutes"
     cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),'6 minutes') < datetime('now')")
@@ -175,7 +202,7 @@ def record_signal(identity):
         print("?")
         #TODO: is it too much to scan for CSV list-of-ID numbers?
     #TODO resolve name to ID
-    db = sqlite3.connect("/db/heartbeat_monitor.db")
+    db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("SELECT * from registry where id = ?",(identity,))
     ht_response = dict({'response': "ACK", 'id': identity, 'altid': "?"})
@@ -214,7 +241,7 @@ def record_alert(identity):
         print("?")
         #TODO: is it too much to scan for CSV list-of-ID numbers?
     #TODO resolve name to ID
-    db = sqlite3.connect("/db/heartbeat_monitor.db")
+    db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("SELECT * from registry where id = ?",(identity,))
     ht_response = dict({'response': "ACK", 'id': identity, 'altid': "?"})
@@ -236,7 +263,7 @@ def record_alert(identity):
 
 @route("/api/service_status", method='GET')
 def service_status():
-    db = sqlite3.connect("/db/heartbeat_monitor.db")
+    db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("SELECT * from registry where name = 'heartbeat_monitor'")
     #row = await cursor.fetchone()
@@ -254,7 +281,7 @@ def service_status():
     return json.dumps({'response':"ACK", 'service_status': str(x)})
 
 def teams_webhook_actioncard_post(message):
-    hook_uri="https://berrypetroleumco.webhook.office.com/webhookb2/a02dcf7f-7e88-4af2-b602-dc907d9994ef@814cb8e7-c41c-409c-84b7-342c883ed902/IncomingWebhook/1e427a09e39c4fae831ca18e9bddece4/a1f76075-6bc9-4c58-91a6-b45c08ba5541"
+    hook_uri=ADAPTIVE_CARDS_WEBHOOK_URI 
     #super simple
     card_payload = """
         {

@@ -43,7 +43,7 @@ confirm/heartbeat page
 optional automatic backup of the db, perhaps rsync
 "export" is just downloading registry, as long as we are sure we have every column in the output
 
-https://bpits.heartbeat.sh/
+https://foo.heartbeat.sh/
 
 
 
