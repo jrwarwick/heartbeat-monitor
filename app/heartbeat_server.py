@@ -39,6 +39,8 @@ def monitor():
     """
     ###DEBUG###import pdb; pdb.set_trace()
     print("[monitor]: execution thread started.")
+    print("           AdaptiveCard Webhook UIR configured for outgoing notifications: " + ADAPTIVE_CARDS_WEBHOOK_URI )
+    #maybe do a HEAD request on these to ensure they are reachable? warn if not?
     print("           default/fallback ntfy channel configured for outgoing notifications: " + DEFAULT_NTFY_CHANNEL_NAME )
     for i in range(1000):
         #instead of time.sleep(120), look to this thread wait technique:
@@ -50,54 +52,60 @@ def monitor():
             if not i % 10:
                 print("[monitor]: iteration "+str(i)+".  ("+str(nowness)+")")
                 #any kind of checkpoint here? a monitor watcher?
-            rep_htreq = requests.get( SIGNAL_URI_BASE+"api/report")
-            if rep_htreq.status_code == 200:
-                ##print(rep_htreq.text)
-                alerts = json.loads(rep_htreq.text)
+            rep_htresp = requests.get( SIGNAL_URI_BASE+"api/report")
+            if rep_htresp.status_code == 200:
+                ##print(rep_htresp.text)
+                alerts = json.loads(rep_htresp.text)
                 print(str(len(alerts['heartbeats'])))
                 for j in range(len(alerts['heartbeats'])):
                     #TODO: determine if this is a ntfy channel or an email address, then branch accordingly
                     #print(" prep for alert: " + str(alerts['heartbeats'][j]['name']))
                     ##Super Simple:
                     ##msg = NOTIFICATION_MESSAGE_PREFIX + alerts['heartbeats'][j]['name']
-                    ##alert_htreq = requests.post("https://ntfy.sh/" + DEFAULT_NTFY_CHANNEL_NAME, data=msg.encode(encoding='utf-8'))
+                    ##alert_htresp = requests.post("https://ntfy.sh/" + DEFAULT_NTFY_CHANNEL_NAME, data=msg.encode(encoding='utf-8'))
                     #Slightly Fancier
                     msg = "Examine job/task " + alerts['heartbeats'][j]['name'] + " as it is overdue for a heartbeat signal!"
                     if alerts['heartbeats'][j]['last_alert_date']:
                         #2023-06-06 14:30:53
-                        ready_date = datetime.datetime.srtptime(alerts['heartbeats'][j]['last_alert_date'],"%Y-%m-%d %H:%M:%S") + datetime.timedelta(0,COOLOFF_PERIOD)
+                        ready_date = datetime.datetime.strptime(alerts['heartbeats'][j]['last_alert_date'],"%Y-%m-%d %H:%M:%S") + datetime.timedelta(0,COOLOFF_PERIOD)
                     else:
                         ready_date = nowness - datetime.timedelta(0,COOLOFF_PERIOD)
-                    print("thresh hold date: " + str(ready_date) + " vs. " + str(nowness))
+                    print("\t\tthresh hold date: " + str(ready_date) + " vs. " + str(nowness))
                     if nowness < ready_date:
-                        print("Cooling off on this one...")
+                        print("\t\t\t|_ Cooling off on this one...")
                     else:
                         #TODO: detection and branching and fallback based on notification addresses
                         # differing notifciation strategies probably need some dedicated functions too
+                        try:
+                            at_sign_index = alerts['heartbeats'][j]['alert_address_primary'].index("@")
+                        except ValueError:
+                            at_sign_index = 0
                         if alerts['heartbeats'][j]['alert_address_primary'].startswith("http://"):
-                                print(" alert_address_primary appears to be an HTTP URL (webhook?)")
+                                print("  alert_address_primary appears to be an HTTP URL (webhook?)")
                         elif alerts['heartbeats'][j]['alert_address_primary'].startswith("tel:"):
-                                print(" alert_address_primary appears to be a TELephone number (sms?)")
-                        elif alerts['heartbeats'][j]['alert_address_primary'].index("@") > 3:
-                                print(" alert_address_primary appears to be an EMAIL ADDRESS")
+                                print("  alert_address_primary appears to be a TELephone number (sms?)")
+                        elif at_sign_index > 2:
+                                print("  alert_address_primary appears to be an EMAIL ADDRESS")
                         else:
-                                print(" alert_address_primary appears to be a simple string, so maybe a ntfy channel name?")
-                        alert_htreq = requests.post("https://ntfy.sh/" + DEFAULT_NTFY_CHANNEL_NAME,
+                                print("  alert_address_primary appears to be a simple string, so maybe a ntfy channel name?")
+                        alert_htresp = requests.post("https://ntfy.sh/" + DEFAULT_NTFY_CHANNEL_NAME,
                                 data=msg.encode(encoding='utf-8'),
                                 headers={
                                         "Title": NOTIFICATION_MESSAGE_PREFIX ,
-                                        "Priority": "High",
+                                        "Priority": "default",
                                         "Tags": "warning"
                                 })
-                        if alert_htreq.status_code == 429:
+                        if alert_htresp.status_code == 404:
+                            print("WARNING: URI not found: "+alert_htresp.url)
+                        elif alert_htresp.status_code == 429:
                             #blackout, temporary double cooloff, but also fallback/escalate?
                             print("WARNING: too many requests to external service!")
-                        print("\t outgoing http: "+str(alert_htreq.status_code) + "\t" + msg)
-                        arec_htreq = requests.put( SIGNAL_URI_BASE+"api/alert/"+str(alerts['heartbeats'][j]['id']))
-                        print("\t self http: "+str(arec_htreq.status_code) + "\t" + msg)
+                        print("\t ntfy outgoing http: "+str(alert_htresp.status_code) + "\t" + alert_htresp.text + "\t" + msg)
+                        arec_htresp = requests.put( SIGNAL_URI_BASE+"api/alert/"+str(alerts['heartbeats'][j]['id']))
+                        print("\t self http: "+str(arec_htresp.status_code) + "\t" + msg)
             else:
-                print(str(rep_htreq.status_code))
-                print(rep_htreq)
+                print(str(rep_htresp.status_code))
+                print(rep_htresp)
     print("[monitor]: execution thread shutting down on shutdown event signal.") # or expired...
 
 monitor_thread = Thread(target=monitor)
@@ -168,7 +176,7 @@ def overdue_report():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     offset = str(6)+" minutes"
-    cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),'6 minutes') < datetime('now')")
+    cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' seconds') < datetime('now')")
     #cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),?) < datetime('now')",offset)
     #cursor.execute("SELECT * from registry where coalesce(last_signal_date,datetime('now','-10 minutes')) < datetime('now')")
     #row = await cursor.fetchone()
@@ -181,7 +189,7 @@ def overdue_report():
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({"heartbeats": datadict})
 
-@route("/api/heartbeat/<identity>")
+@route("/api/heartbeat/<identity>",method="ANY")
 def record_signal(identity):
     """
     We are making a deliberate choice here. This is a down-in-the-trenches
@@ -276,11 +284,11 @@ def service_status():
         response.status = 503
         x = 0
     db.close()
-    teams_webhook_actioncard_post("SVC STATUS: " + str(x))
+    adaptive_card_webhook_post("SVC STATUS: " + str(x))
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({'response':"ACK", 'service_status': str(x)})
 
-def teams_webhook_actioncard_post(message):
+def adaptive_card_webhook_post(message):
     hook_uri=ADAPTIVE_CARDS_WEBHOOK_URI 
     #super simple
     card_payload = """
@@ -292,8 +300,8 @@ def teams_webhook_actioncard_post(message):
             "text": "This is a simple text card, but you can add images, buttons, whatever! ;) """ + message + """ "  
         }
     """
-    report_htreq = requests.post(hook_uri, data=card_payload.encode(encoding='utf-8'))
-    print("\tMS Teams outgoing http: "+str(report_htreq.status_code) + "\t?" )
+    report_htresp = requests.post(hook_uri, data=card_payload.encode(encoding='utf-8'))
+    print("\t"+thread.name+"MS Teams outgoing http: "+str(report_htresp.status_code) + "\t?" )
 
 
 print("Consumption URI: " + SIGNAL_URI_BASE)

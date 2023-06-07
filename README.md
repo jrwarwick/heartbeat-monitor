@@ -8,6 +8,8 @@ The way this works is the tail end of your job or script or whatever must invoke
 
 Hopefully putting this all into one single simple docker image so it is quick and easy to set up and throw away.
 
+It seems like the only sensible thing to do is have an environment file for docker, but you could technically set everything via -e arguments on the docker run invocation.
+
 # Examples
 docker launch:
  
@@ -16,3 +18,6 @@ docker launch:
 or maybe:
 
 	docker run -it -p 5000:5000  --mount type=bind,source="$(pwd)"/db,target=/db  -e "SIGNAL_URI_BASE=http://$(hostname --fqdn):5000/" -e "NOTIFICATION_MESSAGE_PREFIX=Heartbeat flatlined!" -e "DEFAULT_NTFY_CHANNEL_NAME=foobar-ntfy-channelname" heartbeatmon
+
+
+	curl http://dockerhost:5000/api/heartbeat/2
