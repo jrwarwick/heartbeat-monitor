@@ -5,20 +5,25 @@ import time
 import datetime
 import sqlite3
 import requests
-from threading import Thread, Event
+from threading import Thread, Event, get_ident, current_thread
+
+
+## Configuration
+DB_FILEPATH                 = "/db/heartbeat_monitor.db"
+# Seconds. Probably should be 120 or greater.
+MONITORING_PERIOD_LENGTH    = 60 * 5  if "MONITORING_PERIOD_LENGTH" not in os.environ else int(os.environ.get("MONITORING_PERIOD_LENGTH"))
+# Seconds. Probably should be a multiple of hours
+COOLOFF_PERIOD              = 60 * 60 * 8  if "COOLOFF_PERIOD" not in os.environ else int(os.environ.get("COOLOFF_PERIOD"))
+#TODO: more conditional defaulting like above
+SIGNAL_URI_BASE             = os.environ['SIGNAL_URI_BASE']
+NOTIFICATION_MESSAGE_PREFIX = os.environ['NOTIFICATION_MESSAGE_PREFIX']
+DEFAULT_NTFY_CHANNEL_NAME   = os.environ['DEFAULT_NTFY_CHANNEL_NAME']
+ADAPTIVE_CARDS_WEBHOOK_URI  = os.environ['ADAPTIVE_CARDS_WEBHOOK_URI'] # pretty much MS Teams channel web hook.
 
 
 ## Monitor Thread
 shutdown_event = Event()
 service_period_event = Event()
-DB_FILEPATH = "/db/heartbeat_monitor.db"
-MONITORING_PERIOD_LENGTH =  60 * 5  #probably should be 120 or greater. Seconds.
-COOLOFF_PERIOD =            60*60   #seconds
-SIGNAL_URI_BASE =               os.environ['SIGNAL_URI_BASE']
-NOTIFICATION_MESSAGE_PREFIX =   os.environ['NOTIFICATION_MESSAGE_PREFIX']
-DEFAULT_NTFY_CHANNEL_NAME =     os.environ['DEFAULT_NTFY_CHANNEL_NAME']
-ADAPTIVE_CARDS_WEBHOOK_URI =    os.environ['ADAPTIVE_CARDS_WEBHOOK_URI'] # pretty much MS Teams channel web hook.
-
 
 def monitor():
     """
@@ -39,9 +44,10 @@ def monitor():
     """
     ###DEBUG###import pdb; pdb.set_trace()
     print("[monitor]: execution thread started.")
-    print("           AdaptiveCard Webhook UIR configured for outgoing notifications: " + ADAPTIVE_CARDS_WEBHOOK_URI )
+    print("           Monitoring period length: " + str(MONITORING_PERIOD_LENGTH))
+    print("           AdaptiveCard Webhook UIR configured for outgoing notifications: " + ADAPTIVE_CARDS_WEBHOOK_URI)
     #maybe do a HEAD request on these to ensure they are reachable? warn if not?
-    print("           default/fallback ntfy channel configured for outgoing notifications: " + DEFAULT_NTFY_CHANNEL_NAME )
+    print("           default/fallback ntfy channel configured for outgoing notifications: " + DEFAULT_NTFY_CHANNEL_NAME)
     for i in range(1000):
         #instead of time.sleep(120), look to this thread wait technique:
         service_period_event.wait(timeout=MONITORING_PERIOD_LENGTH) 
@@ -109,6 +115,7 @@ def monitor():
     print("[monitor]: execution thread shutting down on shutdown event signal.") # or expired...
 
 monitor_thread = Thread(target=monitor)
+monitor_thread.name = "heartbeat_monitor"
 monitor_thread.start()
 
 
@@ -144,6 +151,7 @@ def register():
         cursor = db.cursor() 
         #cursor.execute("INSERT into registry (name,period) VALUES('Test_"+genid+"',120)")
         cursor.execute("INSERT into registry (name,period,ALERT_ADDRESS_PRIMARY) VALUES(?,?,?)",(params_name,params_period,params_notification_address))
+        #TODO: maybe on client side, but make sure that a customized heartbeat curl line is generated, with appropriate id for copy-n-paste
         client_message = "Registration successful, ID# " + str(cursor.lastrowid)
         #cursor.execute("SELECT * from registry")
         #rows = cursor.fetchall()
@@ -157,6 +165,11 @@ def register():
 @route("/api/registry", method='GET')
 @route("/api/export", method='GET')
 def registry_report():
+    """
+    This is just your basic get-everything on the core object of the whole application.
+    Note the secondary alias because merely downloading this is like a backup of your
+    deployment/instance of this thing (sans the service behavior configurations, though).
+    """
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("SELECT * from registry")
@@ -167,19 +180,21 @@ def registry_report():
         x = rows.count
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
     db.close()
+    if request.path == "/api/export":
+        #TODO: append the "sysconfiguration" (cool off period, URLs and channel names for stuff)
+        print("TODO: implement expansion of export to include sys config.")
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({"monitor_registration": datadict})
 
 @route("/api/flatline", method='GET')
-@route("/api/report", method='GET')
+@route("/api/report",   method='GET')
+@route("/api/overdue",  method='GET')
 def overdue_report():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     offset = str(6)+" minutes"
     cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' seconds') < datetime('now')")
     #cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),?) < datetime('now')",offset)
-    #cursor.execute("SELECT * from registry where coalesce(last_signal_date,datetime('now','-10 minutes')) < datetime('now')")
-    #row = await cursor.fetchone()
     rows = cursor.fetchall()
     if rows:
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
@@ -189,7 +204,7 @@ def overdue_report():
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({"heartbeats": datadict})
 
-@route("/api/heartbeat/<identity>",method="ANY")
+@route("/api/heartbeat/<identity>", method="ANY")
 def record_signal(identity):
     """
     We are making a deliberate choice here. This is a down-in-the-trenches
@@ -247,7 +262,7 @@ def record_alert(identity):
         print("\t\twhich is by numeric ID (not alias)")
     else:
         print("?")
-        #TODO: is it too much to scan for CSV list-of-ID numbers?
+        #TODO: is it too much to scan for CSV list-of-ID numbers? (and then split and iterate)
     #TODO resolve name to ID
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
@@ -271,15 +286,20 @@ def record_alert(identity):
 
 @route("/api/service_status", method='GET')
 def service_status():
+    """
+    This is the heartbeat monitor service itself. A robust deployment would have
+    something watching the watcher, as it were. But this could just be your usual
+    WhatsUp/uptimerobot/etc. 
+    """
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("SELECT * from registry where name = 'heartbeat_monitor'")
-    #row = await cursor.fetchone()
+    #should we get more clever here? Add in something like a proportion of registrations with heartbeats within nominal?
     rows = cursor.fetchall()
     if rows:
         ##datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
         print(rows[0])
-        x = rows.count
+        x = rows.count()
     else:
         response.status = 503
         x = 0
@@ -301,7 +321,7 @@ def adaptive_card_webhook_post(message):
         }
     """
     report_htresp = requests.post(hook_uri, data=card_payload.encode(encoding='utf-8'))
-    print("\t"+thread.name+"MS Teams outgoing http: "+str(report_htresp.status_code) + "\t?" )
+    print("\t" + current_thread().name + " MS Teams outgoing http: " + str(report_htresp.status_code) + "\t?" )
 
 
 print("Consumption URI: " + SIGNAL_URI_BASE)

@@ -681,14 +681,18 @@ img {
 		</div>
 
 		<div class="row">
-		</div>
-
-		<div class="row">
 			<ul><caption>api</caption>
 				<li> <a href="/api/registry">Show Full Registry</a> </li>
 				<li><a href="/api/service_status">Show Heartbeat Service Status</a></li>
 				<li><a href="/api/report">Show Overdue Registrations</a></li>
 			</ul>
+		</div>
+
+		<div class="row">
+			<pre><code>
+	curl http://hostname.foo.tld:5000/api/heartbeat/4
+	Invoke-RestMethod -Uri http://hostname.foo.tld:5000/api/heartbeat/4
+			</code></pre>
 		</div>
 	</div>
 </body>

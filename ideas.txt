@@ -1,3 +1,6 @@
+in registration view:
+keep track of most recently clicked period length button. if you click the same one *add* another increment of the value instead of replace.
+Thus: clicking the day button 3 times in a row ends up with the time for 3 days
 
 Notifyee, (fail-over/escalation notifyee), optional @mention, priority-expression,
 separte table:
@@ -45,6 +48,11 @@ optional automatic backup of the db, perhaps rsync
 
 https://foo.heartbeat.sh/
 
+
+#short-hash-altID-code-things:
+having let the following run for pretty good while, no duplicates were found, so maybe an ok way to create short, non-duplicating IDs (instead of just serial number)
+ while [ 1 = 1 ] ; do sleep 1 ;  ( date "+%s" > /tmp/unixtime.txt ; crc32 /tmp/unixtime.txt ) >> /tmp/stampcollection.txt ; done
+ sort /tmp/stampcollection.txt | uniq -d 
 
 
 
