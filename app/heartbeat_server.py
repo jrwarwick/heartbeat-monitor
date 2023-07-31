@@ -1,5 +1,5 @@
 import os
-from bottle import route, request, response, run, template, debug
+from bottle import route, request, response, run, template, debug, static_file
 import json
 import time
 import datetime
@@ -45,10 +45,10 @@ def monitor():
     ###DEBUG###import pdb; pdb.set_trace()
     print("[monitor]: execution thread started.")
     print("           Monitoring period length: " + str(MONITORING_PERIOD_LENGTH))
-    print("           AdaptiveCard Webhook UIR configured for outgoing notifications: " + ADAPTIVE_CARDS_WEBHOOK_URI)
+    print("           AdaptiveCard Webhook URI configured for outgoing notifications: " + ADAPTIVE_CARDS_WEBHOOK_URI)
     #maybe do a HEAD request on these to ensure they are reachable? warn if not?
     print("           default/fallback ntfy channel configured for outgoing notifications: " + DEFAULT_NTFY_CHANNEL_NAME)
-    for i in range(1000):
+    for i in range(1000):  #wierd dumb artificial lifespan. TODO: change this out for some useful, meaningful semaphore, or, infinite loop.
         #instead of time.sleep(120), look to this thread wait technique:
         service_period_event.wait(timeout=MONITORING_PERIOD_LENGTH) 
         if shutdown_event.is_set():
@@ -126,6 +126,25 @@ def homepage():
     genid = str(time.time_ns())
     return template('registration',msg="REGISTRATION URI: "+ SIGNAL_URI_BASE+"api/heartbeat/"+ genid )
 
+@route("/registry")
+def registry_ui():
+    """
+    original plan:
+    note here that the template will yield mostly static html, which then will do some *client*-side template work for the rows, 
+    consuming our own api for the content.
+    but seems like can't turn off the template safely to avoid parse errors.
+    """
+    # Do we want a next-check-in-due-date?
+    db = sqlite3.connect(DB_FILEPATH)
+    cursor = db.cursor() 
+    cursor.execute("""SELECT id,
+        CASE when datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' seconds') < datetime('now') THEN 'OVERDUE' ELSE 'Ok' END Status,
+        name,last_signal_date,alert_address_primary||CASE WHEN alert_address_secondary IS NULL THEN ' ' ELSE ','||alert_address_secondary END notify_addresses,
+        period,blackout_period 
+        FROM registry
+    """)
+    return template('registry',msg="SOME FUNCTIONS NOT YET IMPLEMENTED",registry_lines=cursor.fetchall())
+
 # API - RESTful
 #TODO: /api/ for OpenAPI stuff, and mimetypes
 #TODO: edits/updates and deletes?
@@ -160,7 +179,18 @@ def register():
         db.close()
     else:
         client_message = "Insufficient parameter data supplied! Try again?"
+    #TODO: refactor: no template/ui, just json object returns. then consume this from elsewhere
     return template('registration',msg=client_message+"<br/>  REGISTRATION ID "+genid)
+
+
+@route("/api/registry/<identity>", method='DELETE')
+def delete_registration(identity):
+    db = sqlite3.connect(DB_FILEPATH)
+    cursor = db.cursor() 
+    cursor.execute("DELETE from registry where id = ?",(identity,))
+    db.commit()
+    db.close()
+
 
 @route("/api/registry", method='GET')
 @route("/api/export", method='GET')
@@ -177,11 +207,11 @@ def registry_report():
     rows = cursor.fetchall()
     if rows:
         #print(rows[0])
-        x = rows.count
+        x = len(rows)
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
     db.close()
     if request.path == "/api/export":
-        #TODO: append the "sysconfiguration" (cool off period, URLs and channel names for stuff)
+        #TODO: append the "sysconfiguration" (cool off period, URLs and channel names for stuff) and set mimetype and other http headers for download
         print("TODO: implement expansion of export to include sys config.")
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({"monitor_registration": datadict})
@@ -198,7 +228,7 @@ def overdue_report():
     rows = cursor.fetchall()
     if rows:
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
-        x = rows.count
+        x = len(rows)
     db.close()
     #return json.dumps({"heartbeats": "ONE" + str(rows)})
     response.content_type = 'application/json; charset=UTF8' 
@@ -219,18 +249,26 @@ def record_signal(identity):
         if identity:
             print("\tincoming heartbeat, id by params")
     print("\t\tidentity:  "+identity)
-    if (identity.isnumeric()):
-        print("\t\twhich is by numeric ID (not alias)")
-    else:
-        print("?")
-        #TODO: is it too much to scan for CSV list-of-ID numbers?
-    #TODO resolve name to ID
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
-    cursor.execute("SELECT * from registry where id = ?",(identity,))
+    if (identity.isnumeric()):
+        print("\t\twhich is by numeric ID (not alias)")
+        cursor.execute("SELECT * from registry where id = ?",(identity,))
+    else:
+        #TODO: is it too much to scan for CSV list-of-ID numbers?
+        #TODO resolve name to ID
+        print("\t\ttrying for name resolution")
+        cursor.execute("SELECT id from registry where name = ?",(identity,))
+        row = cursor.fetchone()
+        if row:
+            identity = row[0]
+        cursor.execute("SELECT * from registry where id = ?",(identity,))
     ht_response = dict({'response': "ACK", 'id': identity, 'altid': "?"})
     rows = cursor.fetchall()
     if rows:
+        if len(rows) > 1:
+            response.status = 400
+            ht_response['response']="Invalid ID spec, non-unique! More than one entry returned."
         #print(rows[0])
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
         print ( datadict )
@@ -299,7 +337,7 @@ def service_status():
     if rows:
         ##datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
         print(rows[0])
-        x = rows.count()
+        x = len(rows)
     else:
         response.status = 503
         x = 0
@@ -307,6 +345,10 @@ def service_status():
     adaptive_card_webhook_post("SVC STATUS: " + str(x))
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({'response':"ACK", 'service_status': str(x)})
+
+@route("/static/<filename>")
+def server_static(filename):
+    return static_file(filename, root="./static")
 
 def adaptive_card_webhook_post(message):
     hook_uri=ADAPTIVE_CARDS_WEBHOOK_URI 

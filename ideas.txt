@@ -10,6 +10,10 @@ separte table:
 blackout/pause feature in deadmansnitch
 
 
+svg datauri of heartbeat ekg line for icon, embed.
+
+registry page: client-side fancification and styling, color code status, etc
+
  
  create table registration(
         ID                      INT PRIMARY KEY NOT NULL,
