@@ -138,7 +138,7 @@ def registry_ui():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("""SELECT id,
-        CASE when datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' seconds') < datetime('now') THEN 'OVERDUE' ELSE 'Ok' END Status,
+        CASE when datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' minutes') < datetime('now') THEN 'OVERDUE' ELSE 'Ok' END Status,
         name,last_signal_date,alert_address_primary||CASE WHEN alert_address_secondary IS NULL THEN ' ' ELSE ','||alert_address_secondary END notify_addresses,
         period,blackout_period 
         FROM registry
@@ -223,7 +223,7 @@ def overdue_report():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     offset = str(6)+" minutes"
-    cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' seconds') < datetime('now')")
+    cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' minutes') < datetime('now')")
     #cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),?) < datetime('now')",offset)
     rows = cursor.fetchall()
     if rows:

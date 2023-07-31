@@ -4,7 +4,6 @@
 	<meta charset="UTF-8">
 	<title>Heartbeat Monitor - BottleOnDocker</title>
 	<link rel="stylesheet" href="/static/milligram.css" />
-	<script type="application/javascript" src="/static/mustache.js"></script>
 	<script>
 		function send_registration_delete_request(id) {
 			console.log("DELETE attempt...");
