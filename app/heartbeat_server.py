@@ -48,7 +48,7 @@ def monitor():
     print("           AdaptiveCard Webhook URI configured for outgoing notifications: " + ADAPTIVE_CARDS_WEBHOOK_URI)
     #maybe do a HEAD request on these to ensure they are reachable? warn if not?
     print("           default/fallback ntfy channel configured for outgoing notifications: " + DEFAULT_NTFY_CHANNEL_NAME)
-    for i in range(1000):  #wierd dumb artificial lifespan. TODO: change this out for some useful, meaningful semaphore, or, infinite loop.
+    for i in range(1000):  #wierd dumb artificial lifespan. TODO: change this out for some useful, meaningful semaphore (like a killswitch.txt file), or, infinite loop.
         #instead of time.sleep(120), look to this thread wait technique:
         service_period_event.wait(timeout=MONITORING_PERIOD_LENGTH) 
         if shutdown_event.is_set():
@@ -60,7 +60,7 @@ def monitor():
                 #any kind of checkpoint here? a monitor watcher?
             rep_htresp = requests.get( SIGNAL_URI_BASE+"api/report")
             if rep_htresp.status_code == 200:
-                ##print(rep_htresp.text)
+                ###DEBUG###print(rep_htresp.text)
                 alerts = json.loads(rep_htresp.text)
                 print(str(len(alerts['heartbeats'])))
                 for j in range(len(alerts['heartbeats'])):
@@ -124,7 +124,14 @@ monitor_thread.start()
 @route("/")
 def homepage():
     genid = str(time.time_ns())
+    return template('introduction',msg="REGISTRATION URI: "+ SIGNAL_URI_BASE+"api/heartbeat/"+ genid )
+
+
+@route("/registration")
+def registration_form():
+    genid = str(time.time_ns())
     return template('registration',msg="REGISTRATION URI: "+ SIGNAL_URI_BASE+"api/heartbeat/"+ genid )
+
 
 @route("/registry")
 def registry_ui():
@@ -148,7 +155,7 @@ def registry_ui():
 # API - RESTful
 #TODO: /api/ for OpenAPI stuff, and mimetypes
 #TODO: edits/updates and deletes?
-#TODO: some reasonable aliases and flexibility mods?
+#TODO: some reasonable aliases and flexibility mods? lists of ids/names?
 @route("/api/registry", method='POST')
 def register():
     genid = str(time.time_ns())
@@ -216,25 +223,27 @@ def registry_report():
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({"monitor_registration": datadict})
 
+
 @route("/api/flatline", method='GET')
 @route("/api/report",   method='GET')
 @route("/api/overdue",  method='GET')
 def overdue_report():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
-    offset = str(6)+" minutes"
     cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' minutes') < datetime('now')")
-    #cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),?) < datetime('now')",offset)
     rows = cursor.fetchall()
     if rows:
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
         x = len(rows)
     db.close()
-    #return json.dumps({"heartbeats": "ONE" + str(rows)})
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({"heartbeats": datadict})
 
+
 @route("/api/heartbeat/<identity>", method="ANY")
+@route("/api/checkin/<identity>", method="ANY")
+@route("/heart/beat/<identity>", method="ANY")
+@route("/lub/dub/<identity>", method="ANY")
 def record_signal(identity):
     """
     We are making a deliberate choice here. This is a down-in-the-trenches
