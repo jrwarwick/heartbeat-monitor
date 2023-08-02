@@ -1,4 +1,4 @@
-in registration view:
+registration view:
 keep track of most recently clicked period length button. if you click the same one *add* another increment of the value instead of replace.
 Thus: clicking the day button 3 times in a row ends up with the time for 3 days
 
@@ -12,9 +12,14 @@ blackout/pause feature in deadmansnitch
 
 svg datauri of heartbeat ekg line for icon, embed.
 
-registry page: client-side fancification and styling, color code status, etc
-
+registry view enhancements: 
+	- client-side fancification and styling, color code status, etc
+	- a copy-to-clipboard button for a crontab entry featuring that specific line
  
+bonus suggested code block:
+	a cronjob that does a simple status check on the heartbeatmonitor service itself, and alerts if not ACK/OK
+	perhaps also an optional SMTP outgoing functionality check:  dedicate a mailbox to heartbeat monitor. It will send itself an email once a day, and check the inbox 15 minutes later to be sure SMTP isn't block or anything.
+
  create table registration(
         ID                      INT PRIMARY KEY NOT NULL,
         NAME                    TEXT            NOT NULL,
@@ -23,6 +28,8 @@ registry page: client-side fancification and styling, color code status, etc
 );
 
 
+monitor thread enhancement: 
+	don't immediately process flatlines for brand-new registrations. So have a filtering exception. Or else, new registrations should be created *WITH* a default blackout for the first hour of its life.
 
 new alert channel
 	type
