@@ -179,9 +179,6 @@ def register():
         cursor.execute("INSERT into registry (name,period,ALERT_ADDRESS_PRIMARY) VALUES(?,?,?)",(params_name,params_period,params_notification_address))
         #TODO: maybe on client side, but make sure that a customized heartbeat curl line is generated, with appropriate id for copy-n-paste
         client_message = "Registration successful, ID# " + str(cursor.lastrowid)
-        #cursor.execute("SELECT * from registry")
-        #rows = cursor.fetchall()
-        #print(rows)
         db.commit()
         db.close()
     else:
@@ -210,11 +207,8 @@ def registry_report():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("SELECT * from registry")
-    #row = await cursor.fetchone()
     rows = cursor.fetchall()
     if rows:
-        #print(rows[0])
-        x = len(rows)
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
     db.close()
     if request.path == "/api/export":
@@ -234,7 +228,6 @@ def overdue_report():
     rows = cursor.fetchall()
     if rows:
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
-        x = len(rows)
     db.close()
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({"heartbeats": datadict})
@@ -346,14 +339,14 @@ def service_status():
     if rows:
         ##datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
         print(rows[0])
-        x = len(rows)
+        rowcount = len(rows)
     else:
         response.status = 503
-        x = 0
+        rowcount = 0
     db.close()
-    adaptive_card_webhook_post("SVC STATUS: " + str(x))
+    adaptive_card_webhook_post("SVC STATUS: " + str(rowcount))
     response.content_type = 'application/json; charset=UTF8' 
-    return json.dumps({'response':"ACK", 'service_status': str(x)})
+    return json.dumps({'response':"ACK", 'service_status': str(rowcount)})
 
 @route("/static/<filename>")
 def server_static(filename):
