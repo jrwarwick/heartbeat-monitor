@@ -4,6 +4,7 @@
 	<meta charset="UTF-8">
 	<title>Heartbeat Monitor - BottleOnDocker</title>
 	<link rel="stylesheet" href="/static/milligram.css" />
+	<link rel="stylesheet" href="/static/heartbeat.css" />
 	<script>
 		var t = setTimeout(function(){ location.reload();},12000);
 	</script>
@@ -60,5 +61,6 @@
 
 	</div>
 
+	<%include('footer.tpl')%>
 </body>
 </html>

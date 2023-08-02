@@ -1,0 +1,14 @@
+.footer .nav .icon:hover {
+	fill: #606c76;
+}
+.footer .nav .icon {
+	fill: #9b4dca;
+	height: 2rem;
+}
+
+.footer .nav {
+	position: absolute;
+	right: 2rem;
+	top: 50%;
+	transform: translateY(-50%);
+}
