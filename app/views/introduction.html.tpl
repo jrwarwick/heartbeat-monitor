@@ -3,6 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Heartbeat Monitor - BottleOnDocker</title>
+	<link rel="icon" href="static/favicon.ico" />
 	<link rel="stylesheet" href="/static/milligram.css" />
 	<link rel="stylesheet" href="/static/heartbeat.css" />
 	<script>
@@ -61,6 +62,6 @@
 
 	</div>
 
-	<%include('footer.tpl')%>
+	<%include('footer.html.tpl')%>
 </body>
 </html>

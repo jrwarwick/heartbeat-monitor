@@ -6,28 +6,18 @@
 	<link rel="stylesheet" href="/static/milligram.css" />
 	<link rel="stylesheet" href="/static/heartbeat.css" />
 	<script>
-		function send_registration_delete_request(id) {
-			console.log("DELETE attempt...");
-			fetch("/api/registry/"+id, { method: 'DELETE' })
-			    .then((res)=>{
-				console.log("DELETE result: "+ res);
-				let resultInfo = res.json();
-				document.getElementById("msg").innerText = resultInfo;
-				//could be neat to just grey-out or popoff that row, but we'd need to iterate through rows for that//document.getElementById
-				//window.location.href = '/'
-				var t = setTimeout(function(){ location.reload();},1200);
-			    });
-		}
+		var t = setTimeout(function(){ location.reload();},12000);
 	</script>
 </head>
 <body>
 	<h1>&hearts; Heartbeat Monitor Service</h1>
 	<h2>Welcome to the simple pyBottle &quot;Heartbeat Monitor&quot;!</h2>
-	<p>simple, lean bottle on python on docker service sorta like deadman's snitch</p>
+	<p>A simple, lean bottle on python on docker service meant to provide some protection against silent failure in cronjobs. Whether job fails silently or schedule is wrong or server time is wrong, whatever it is, if the job does *not* execute or doesn't check-in at the end, the hearbeat will automatically enter a "flatline" condition, and you can get actively notified abou that.</p>
 	<p><span id="msg">{{!msg}}</span> <a href="/registration" class="button">Add Registration</a></p>
 	<div class="container">
 		<div class="row">
-		<div class="column-60">
+		<div id="status">...</div>
+		<!--div class="column-60">
 			<table>
 				<th>
 					<td>Status</td>
@@ -38,17 +28,17 @@
 					<td>Blackouts</td>
 					<td colspan="2">Control</td>
 				</th>
-			%for registry_line in registry_lines:
+			x%x for registry_line in registry_lines:
 				<tr>
-				%for col in registry_line:
-					<td>{{col}}</td>
-				%end
-					<td><button class="button" onclick="send_registration_delete_request({{registry_line[0]}});">X </a></td>
+				x%x  for col in registry_line:
+					<td>{col}}</td>
+				x%x  end
+					<td><button class="button" onclick="send_registration_delete_request({registry_line[0]}});">X </a></td>
 					<td><a href="todo">||</a></td>
 				</tr>
-			%end
+			x%x end
 			</table>
-		</div>
+		</div-->
 		</div>
 		<div class="row">
 			<ul><caption>views</caption>
@@ -71,6 +61,19 @@
 		</div>
 
 	</div>
-        <%include('footer.html.tpl')%>
+	<script>
+
+	fetch("/api/service_status")
+	  .then(function(response) {
+	    // handle the response
+		doculment.getElementById("ststus").innerText = response.text();
+	  })
+	  .catch(function() {
+	    // handle the error
+		console.error("uh oh, status???");
+	  });
+	</script>
+
+	<%include('footer.html.tpl')%>
 </body>
 </html>

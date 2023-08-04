@@ -65,9 +65,9 @@
 	<script>//==Wire-up for client-side==//
 		document.getElementById("name").onblur = function(){ 
 			console.log('x'); 
-			document.getElementById("utilization_hint").innerText += "\n\n" + location.origin + '/api/heartbeat/' + document.getElementById("name").value;
+			document.getElementById("utilization_hint").innerText += "\n\ncurl " + location.origin + '/api/heartbeat/' + document.getElementById("name").value;
 		}
 	</script>
-	<%include('footer.tpl')%>
+	<%include('footer.html.tpl')%>
 </body>
 </html>
