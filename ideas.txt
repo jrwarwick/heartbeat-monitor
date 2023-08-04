@@ -3,12 +3,16 @@ keep track of most recently clicked period length button. if you click the same 
 Thus: clicking the day button 3 times in a row ends up with the time for 3 days
 
 Notifyee, (fail-over/escalation notifyee), optional @mention, priority-expression,
-separte table:
+separate table:
 	blackout periods
 		registry id, period count (which will be decremented each period)
 
 blackout/pause feature in deadmansnitch
 
+preferred notification/RE-notification timing: IMMEDIATE, morning, afternoon, evening, night
+							daylight hours, after dark, work hours, graveyard shift, 
+	essentially, just impacts the cool off period, round "up" to next block of hours that corresponds.
+	should this be a range, actually? and the above are just "ui-side presets"?
 
 svg datauri of heartbeat ekg line for icon, embed.
 
@@ -26,6 +30,9 @@ bonus suggested code block:
         PERIOD                  INT             NOT NULL,
         LAST_SIGNAL_DATE        DATE
 );
+
+
+utc internally, perhaps, but have an option to display in localtime. or timezone of your choosing, even? might rquire cookies and so on.
 
 
 monitor thread enhancement: 
@@ -52,6 +59,7 @@ service status
 confirm/heartbeat page
 	callable with query params, but also just downloadable scriptlets
 	
+maybe make bottle logging (to console) datestamp format more yyyymmddHHMMss-ish
 
 
 optional automatic backup of the db, perhaps rsync
@@ -79,3 +87,4 @@ apt-get install python3-flask ##TODO noninteractive?
 
 export FLASK_APP=/usr/local/src/hb.py ; flask run --host=0.0.0.0
  
+
