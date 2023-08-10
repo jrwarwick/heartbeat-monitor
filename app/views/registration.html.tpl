@@ -39,25 +39,13 @@
 		</div>
 		</div>
 
-		<div class="row">
-			<ul><caption>views</caption>
-				<li> <a href="/registry">Show Full Registry</a> </li>
-				<li><a href="/service_status">Show Heartbeat Service Status</a></li>
-				<li><a href="/report">Show Overdue Registrations</a></li>
-			</ul>
-		</div>
+		<%include('navindex.html.tpl')%>
 
 		<div class="row">
-			<ul><caption>api</caption>
-				<li> <a href="/api/registry">Show Full Registry</a> </li>
-				<li><a href="/api/service_status">Show Heartbeat Service Status</a></li>
-				<li><a href="/api/report">Show Overdue Registrations</a></li>
-			</ul>
-		</div>
-
-		<div class="row">
-			<pre><code id="utilization_hint">
+			<pre><code id="utilization_hint_curl">
 	curl http://hostname.foo.tld:5000/api/heartbeat/4
+			</code></pre>
+			<pre><code id="utilization_hint_powershell">
 	Invoke-RestMethod -Uri http://hostname.foo.tld:5000/api/heartbeat/4
 			</code></pre>
 		</div>
@@ -65,7 +53,8 @@
 	<script>//==Wire-up for client-side==//
 		document.getElementById("name").onblur = function(){ 
 			console.log('x'); 
-			document.getElementById("utilization_hint").innerText += "\n\ncurl " + location.origin + '/api/heartbeat/' + document.getElementById("name").value;
+			document.getElementById("utilization_hint_curl").innerText += "\n\ncurl " + location.origin + '/api/heartbeat/' + document.getElementById("name").value;
+			document.getElementById("utilization_hint_powershell").innerText += "\n\nInvoke-RestMethod -Uri " + location.origin + '/api/heartbeat/' + document.getElementById("name").value;
 		}
 	</script>
 	<%include('footer.html.tpl')%>

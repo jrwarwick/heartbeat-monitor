@@ -29,46 +29,32 @@
 		<div class="row">
 		<div class="column-60">
 			<table>
-				<th>
-					<td>Status</td>
-					<td>Name</td>
-					<td>Last Checkin</td>
-					<td>Notify Address</td>
-					<td>Period Length</td>
-					<td>Blackouts</td>
-					<td colspan="2">Control</td>
-				</th>
-			%for registry_line in registry_lines:
-				<tr>
-				%for col in registry_line:
-					<td>{{col}}</td>
+				<thead><tr>
+					<th>Status</th>
+					<th>Name</th>
+					<th>Last Checkin</th>
+					<th>Notify Address</th>
+					<th>Period Length</th>
+					<th>Blackouts</th>
+					<th colspan="2">Control</th>
+				</tr></thead>
+				<tbody>
+				%for registry_line in registry_lines:
+					<tr>
+					%for col in registry_line:
+						<td>{{col}}</td>
+					%end
+						<td><button class="button" onclick="send_registration_delete_request({{registry_line[0]}});">X </a></td>
+						<td><a href="todo">||</a></td>
+					</tr>
 				%end
-					<td><button class="button" onclick="send_registration_delete_request({{registry_line[0]}});">X </a></td>
-					<td><a href="todo">||</a></td>
-				</tr>
-			%end
+				</tbody>
 			</table>
 		</div>
 		</div>
-		<div class="row">
-			<ul><caption>views</caption>
-				<li> <a href="/registry">Show Full Registry</a> </li>
-				<li><a href="/service_status">Show Heartbeat Service Status</a></li>
-			</ul>
-		</div>
-		<div class="row">
-			<a href="/report">Show Overdue Registrations</a>
-		</div>
 
-		<div class="row">
-			<ul><caption>api</caption>
-				<li> <a href="/api/registry">Show Full Registry</a> </li>
-				<li><a href="/api/service_status">Show Heartbeat Service Status</a></li>
-			</ul>
-		</div>
-		<div class="row">
-			<a href="/api/report">Show Overdue Registrations</a>
-		</div>
+		
+		<%include('navindex.html.tpl')%>
 
 	</div>
         <%include('footer.html.tpl')%>

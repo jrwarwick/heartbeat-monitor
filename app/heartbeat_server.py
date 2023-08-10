@@ -131,12 +131,12 @@ def monitor():
                         elif alert_htresp.status_code == 429:
                             #blackout, temporary double cooloff, but also fallback/escalate?
                             print("WARNING: too many requests to external service!")
-                        print("\t ntfy outgoing http: "+str(alert_htresp.status_code) + "\t" + alert_htresp.text + "\t" + msg)
+                        logger.info("\t ntfy outgoing http: "+str(alert_htresp.status_code) + "\t" + alert_htresp.text + "\t" + msg)
                         arec_htresp = requests.put( SIGNAL_URI_BASE+"api/alert/"+str(alerts['heartbeats'][j]['id']))
-                        print("\t self http: "+str(arec_htresp.status_code) + "\t" + msg)
+                        logger.info("\t self http: "+str(arec_htresp.status_code) + "\t" + msg)
             else:
-                print(str(rep_htresp.status_code))
-                print(rep_htresp)
+                logger.error(str(rep_htresp.status_code))
+                logger.error(rep_htresp)
     print("[monitor]: execution thread shutting down on shutdown event signal.") # or expired...
 
 monitor_thread = Thread(target=monitor)
@@ -371,7 +371,7 @@ def service_status():
         rowcount = 0
     db.close()
     #TODO: might need to put some DDoS protection/throttling on this webhook call...
-    adaptive_card_webhook_post("SVC STATUS: " + str(rowcount))
+    ##adaptive_card_webhook_post("SVC STATUS: " + str(rowcount))
     response.content_type = 'application/json; charset=UTF8' 
     return json.dumps({'response':"ACK", 'service_status': str(rowcount)})
 

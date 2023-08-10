@@ -40,25 +40,8 @@
 			</table>
 		</div-->
 		</div>
-		<div class="row">
-			<ul><caption>views</caption>
-				<li> <a href="/registry">Show Full Registry</a> </li>
-				<li><a href="/service_status">Show Heartbeat Service Status</a></li>
-			</ul>
-		</div>
-		<div class="row">
-			<a href="/report">Show Overdue Registrations</a>
-		</div>
 
-		<div class="row">
-			<ul><caption>api</caption>
-				<li> <a href="/api/registry">Show Full Registry</a> </li>
-				<li><a href="/api/service_status">Show Heartbeat Service Status</a></li>
-			</ul>
-		</div>
-		<div class="row">
-			<a href="/api/report">Show Overdue Registrations</a>
-		</div>
+		<%include('navindex.html.tpl')%>
 
 	</div>
 

@@ -1,3 +1,7 @@
+.footer {
+	margin-top:2.5em;
+	font-size: .75em;
+}
 .footer .nav .icon:hover {
 	fill: #606c76;
 }
