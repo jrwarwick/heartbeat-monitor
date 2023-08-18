@@ -62,6 +62,9 @@ confirm/heartbeat page
 maybe make bottle logging (to console) datestamp format more yyyymmddHHMMss-ish
 
 
+on backend, have optional logging to a local or remote syslog, and a suggestion that localsyslog could be graylogged.
+
+
 optional automatic backup of the db, perhaps rsync
 "export" is just downloading registry, as long as we are sure we have every column in the output
 

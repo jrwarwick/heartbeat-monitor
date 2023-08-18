@@ -20,12 +20,12 @@
 					<input id="name" name="name" type="text" placeholder="suggested name format: environment.hostname.jobtaskscript"/>
 				</label>
 				<label>Period:
-					<input id="period" name="period" type="number" placeholder="integer quantity of minutes before heartbeat is overdue"/>
+					<input id="nominal_period" name="nominal_period" type="number" placeholder="integer quantity of minutes before heartbeat is overdue"/>
 				</label>
 				<div class="float-right">
-					<a href="javascript:document.getElementById('period').value=60;" class="button button-outline float-right">Hourly</a>
-					<a href="javascript:document.getElementById('period').value=24*60;" class="button button-outline float-right">Daily</a>
-					<a href="javascript:document.getElementById('period').value=24*60*7;" class="button button-outline float-right">Weekly</a>
+					<a href="javascript:document.getElementById('nominal_period').value=60;" class="button button-outline float-right">Hourly</a>
+					<a href="javascript:document.getElementById('nominal_period').value=24*60;" class="button button-outline float-right">Daily</a>
+					<a href="javascript:document.getElementById('nominal_period').value=24*60*7;" class="button button-outline float-right">Weekly</a>
 				</div>
 				<label>Notification Address:
 					<input id="notification_address" name="notification_address" type="text" placeholder="for now, just email address"/>

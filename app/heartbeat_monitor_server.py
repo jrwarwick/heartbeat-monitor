@@ -93,6 +93,9 @@ def monitor():
                     ##msg = NOTIFICATION_MESSAGE_PREFIX + alerts['heartbeats'][j]['name']
                     ##alert_htresp = requests.post("https://ntfy.sh/" + DEFAULT_NTFY_CHANNEL_NAME, data=msg.encode(encoding='utf-8'))
                     #Slightly Fancier
+                    if not alerts['heartbeats'][j]['name']:
+                        logger.error("weird. this heartbeat doesn't have a name? " + j + " " + alerts['heartbeats'][j])
+                        #TODO better branching and stuff...
                     msg = "Examine job/task/automaton \"" + alerts['heartbeats'][j]['name'] + "\" as it is overdue for a heartbeat signal/check-in! Last known heartbeat: " + alerts['heartbeats'][j]['last_alert_date']
                     #TODO: optional "N units ago" expression instead of last_alert_date
                     #note: some stuff like the standard title/heading is env-var/config-file based, not in here.
@@ -170,9 +173,9 @@ def registry_ui():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
     cursor.execute("""SELECT id,
-        CASE when datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' minutes') < datetime('now') THEN 'OVERDUE' ELSE 'Ok' END Status,
+        CASE when datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),nominal_period||' minutes') < datetime('now') THEN 'OVERDUE' ELSE 'Ok' END Status,
         name,last_signal_date,alert_address_primary||CASE WHEN alert_address_secondary IS NULL THEN ' ' ELSE ','||alert_address_secondary END notify_addresses,
-        period,blackout_period 
+        nominal_period,blackout_period 
         FROM registry
     """)
     return template('registry.html',msg="SOME FUNCTIONS NOT YET IMPLEMENTED",registry_lines=cursor.fetchall())
@@ -194,14 +197,14 @@ def register():
             # or if it is a whole-export/backup registry and act accordingly.
         else:
             params_name = request.params.get('name')
-            params_period = request.params.get('period')
+            params_nominal_period = request.params.get('nominal_period')
             params_notification_address = request.params.get('notification_address')
-    if params_name and params_period:
-        print(','.join((params_name,params_period,params_notification_address)) + "\n\t" + ','.join(request.params))
+    if params_name and params_nominal_period:
+        print(','.join((params_name,params_nominal_period,params_notification_address)) + "\n\t" + ','.join(request.params))
         db = sqlite3.connect(DB_FILEPATH)
         cursor = db.cursor() 
         #cursor.execute("INSERT into registry (name,period) VALUES('Test_"+genid+"',120)")
-        cursor.execute("INSERT into registry (name,period,ALERT_ADDRESS_PRIMARY) VALUES(?,?,?)",(params_name,params_period,params_notification_address))
+        cursor.execute("INSERT into registry (name,nominal_period,ALERT_ADDRESS_PRIMARY) VALUES(?,?,?)",(params_name,params_nominal_period,params_notification_address))
         #TODO: maybe on client side, but make sure that a customized heartbeat curl line is generated, with appropriate id for copy-n-paste
         client_message = "Registration successful, ID# " + str(cursor.lastrowid)
         db.commit()
@@ -249,7 +252,7 @@ def registry_report():
 def overdue_report():
     db = sqlite3.connect(DB_FILEPATH)
     cursor = db.cursor() 
-    cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),period||' minutes') < datetime('now')")
+    cursor.execute("SELECT * from registry where datetime(coalesce(last_signal_date,datetime('now','-10000 minutes')),nominal_period||' minutes') < datetime('now')")
     rows = cursor.fetchall()
     if rows:
         datadict = [dict((cursor.description[i][0].lower(), value) for i, value in enumerate(row)) for row in rows]
@@ -440,3 +443,4 @@ run(host="0.0.0.0",port=5000)
 shutdown_event.set()
 service_period_event.set()
 print("Main-thread bottle run exited.")
+logger.info("Main-thread bottle server for heartbeat-monitor exiting.")

@@ -12,7 +12,7 @@ RUN  sqlite3 /db/heartbeat_monitor.db
 COPY db/initialize_db.sql  /tmp
 #RUN cat /db/initialize_db.sql  |  sqlite3 /db/heartbeat_monitor.db
 ##TODO: I don't htink this is persistent during build... might just need to remove it, esp. now that we have first run sempaphore file
-RUN  cat /tmp/initialize_db.sql |  sqlite3 /db/heartbeat_monitor.db
+####RUN  cat /tmp/initialize_db.sql |  sqlite3 /db/heartbeat_monitor.db
 COPY app/ /app/
 RUN chmod 664 /app/*.py /app/*.sh
 WORKDIR /app

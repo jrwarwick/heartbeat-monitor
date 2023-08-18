@@ -30,6 +30,7 @@
 		<div class="column-60">
 			<table>
 				<thead><tr>
+					<th>ID</th>
 					<th>Status</th>
 					<th>Name</th>
 					<th>Last Checkin</th>

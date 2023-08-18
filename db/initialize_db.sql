@@ -1,8 +1,9 @@
 create table registry(
 	ID			INTEGER PRIMARY KEY	,
 	NAME			TEXT		NOT NULL,
-	PERIOD			INTEGER		NOT NULL,
+	NOMINAL_PERIOD		INTEGER		NOT NULL,
 	BLACKOUT_PERIOD		INTEGER,
+	MISSED_SIGNAL_TOLERANCE	INTEGER		DEFAULT 0,
 	LAST_SIGNAL_DATE	DATE,
 	LAST_ALERT_DATE		DATE,
 	ALERT_ADDRESS_PRIMARY	TEXT		NOT NULL,
@@ -10,5 +11,5 @@ create table registry(
 );
 
 
-INSERT into registry (name,period,ALERT_ADDRESS_PRIMARY) VALUES("heartbeat_monitor",3600,"root@localhost");
+INSERT into registry (NAME,NOMINAL_PERIOD,ALERT_ADDRESS_PRIMARY) VALUES("heartbeat_monitor",3600,"root@localhost");
 
