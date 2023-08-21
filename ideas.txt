@@ -7,7 +7,11 @@ separate table:
 	blackout periods
 		registry id, period count (which will be decremented each period)
 
-blackout/pause feature in deadmansnitch
+blackout/pause feature (perhaps examine deadmansnitch) to avoid unnecessary alerts during a known-downtime
+	is there also some kind of universal RFC standard for maintenance period scheduling? make our own? i.e., the *server* thread is an RSS feed client, RSS feed is some kind of subformat where each article specifies a period of KNOWN downtime, and if it identifies a heartbeat that pertains, just automatically induce blackout period.
+
+does MQTT fit in anywhere? at a minimum, might be nice to be able to receive MQTT heartbeat signals.
+
 
 preferred notification/RE-notification timing: IMMEDIATE, morning, afternoon, evening, night
 							daylight hours, after dark, work hours, graveyard shift, 
@@ -34,6 +38,9 @@ bonus suggested code block:
 
 utc internally, perhaps, but have an option to display in localtime. or timezone of your choosing, even? might rquire cookies and so on.
 
+perhaps one more column for an extra-foreign key like DBSID or VM GUID or whatever. Something where trying to gain additional awareness of an external system would require that key to look up or recognize that system's identity in it's own external context. (e.g., if you are listening to "Oracle Enterprise Manager" traffic, you would need to know the DB Service Name or Oracle Context Name, perhaps some kind of internal GUID to know what messages pertain to the target).
+
+Make notification "address" terminology more "URI" terminology in labeling and behavior. This might require email addresses to be actually prefixed with "mailto", e.g., : mailto:abc@xyz.tld
 
 monitor thread enhancement: 
 	don't immediately process flatlines for brand-new registrations. So have a filtering exception. Or else, new registrations should be created *WITH* a default blackout for the first hour of its life.
